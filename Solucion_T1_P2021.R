@@ -1,5 +1,3 @@
-### Comentario AAE
-
 #Soluciones Tarea 1 | Primavera 2022
 # Creada por Arturo Aguilar y Miguel Ángel Negrete Flores
 
