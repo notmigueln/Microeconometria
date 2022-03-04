@@ -1,11 +1,16 @@
 #Soluciones Tarea 1 | Primavera 2022
-# Creada por Arturo Aguilar y Miguel Ángel Negrete Flores
+# Creada por Miguel Ángel Negrete Flores
+# Revisada y editada por Arturo Aguilar
 
 # Para ejecutar este script desde su computadora pueden guardar
 # las bases de datos que emplea en un folder en su computadora
 # y establecer dicho folder como el working directory cambiando
 # la siguiente linea [ojo: utilicen las diagonales igual que 
-# abajo sin importar si usan PC o Mac]
+# abajo sin importar si usan PC o Mac]. Alternativamente pueden
+# crear un proyecto referenciado a dicho folder como vimos en 
+# clase
+
+#setwd("C:/Users/aaeag/Econometria/Repaso estadistica")
 
 #Cargamos las librerías que vamos a utilizar
 library(tidyverse)
@@ -23,34 +28,26 @@ library(moments)
 #Cargamos las Base de Datos SpotifyFeatures
 
 SpotifyFeatures<-read.csv("SpotifyFeatures.csv")
-View(SpotifyFeatures)
 
 # ====// Pregunta 2 \\====
 
 #Inciso ( a )
 
-#Creamos una función para calcular la moda:
+# Todas las estadisticas descriptivas excepto la moda se pueden obtener con stargazer
+# Abajo pueden ver como se puede combinar tidyverse con un comando
+# El output se produce en LaTex y a dicho output le agregamos la moda de forma manual
+stargazer(SpotifyFeatures %>% select(valence,energy), nobs = F, median = T, title="Estadisticas Descriptivas", digits=3, out="preg2.tex")
 
+#Creamos una función para calcular la moda:
 get_mode <- function(v) {
   uniqv <- unique(v)
   uniqv[which.max(tabulate(match(v, uniqv)))]
 }
 
-#Calculamos la media, mediana, moda, desviación estándar, el máximo y el mínimo para Valence
-mean(SpotifyFeatures$valence)    #Media
-median(SpotifyFeatures$valence)  #Mediana
+#Calculamos la moda para las variables 
 get_mode(SpotifyFeatures$valence)#Moda
-sd(SpotifyFeatures$valence)      #Desviación estándar
-min(SpotifyFeatures$valence)     #Mínimo
-max(SpotifyFeatures$valence)     #Máximo
-
-#Calculamos la media, mediana, moda, desviación estándar, el máximo y el mínimo para Energy
-mean(SpotifyFeatures$energy)    #Media
-median(SpotifyFeatures$energy)  #Mediana
 get_mode(SpotifyFeatures$energy)#Moda
-sd(SpotifyFeatures$energy)      #Desviación estándar
-min(SpotifyFeatures$energy)     #Mínimo
-max(SpotifyFeatures$energy)     #Máximo
+
 
 #Histogramas
 
@@ -58,74 +55,46 @@ max(SpotifyFeatures$energy)     #Máximo
 ggplot(SpotifyFeatures, aes(x = valence, y = ..count../sum(..count..))) + geom_histogram() +
   labs(x = "Valence", y = "Densidad") + 
   theme_minimal()
+ggsave("Hist_valence.jpeg",  width = 5.54, height = 4.95)
 
 #Energy
 ggplot(SpotifyFeatures, aes(x = energy, y = ..count../sum(..count..))) + geom_histogram() +
   labs (x = "Energy", y = "Densidad") + 
   theme_minimal()
+ggsave("Hist_energy.jpeg",  width = 5.54, height = 4.95)
 
 # ====// Pregunta 3  \\====
 
 #Creamos la muestra que contiene las canciones de Pop y Rock
-SpotifyPR <- SpotifyFeatures[SpotifyFeatures$genre == "Pop"| SpotifyFeatures$genre == "Rock",]
-View(SpotifyPR)
+SpotifyFeatures <- SpotifyFeatures %>% mutate(base=0)
+
+SpotifyPR <- SpotifyFeatures %>% filter(str_detect(ï..genre,'Pop|Rock')) %>% mutate(base = replace(base,base==0,1))
+
+# Pego una base encima de la otra
+SpotifyAgg <- rbind(SpotifyFeatures,SpotifyPR)
 
 # ====// Inciso ( a )
 
 #Calculamos media, varianza, número de observaciones y desviación estándar para las variables popularity, danceability, energy y valence en la base SpotifyPR
 
-#Cálculos Popularity
-(media_popularity_<PR <- mean(SpotifyPR$popularity, na.rm = T))
-varianza_popularity_PR <- var(SpotifyPR$popularity, na.rm = T)
-n_popularity_PR <- sum(!is.na(SpotifyPR$popularity))
-(sd_popularity_PR <- sqrt(varianza_popularity_PR/n_popularity_PR))
+# Con la base completa hacemos un t test que es equivalente a la diferencia de medias
+t.test(popularity~base, data = SpotifyAgg, var.equal = F)
+t.test(danceability~base, data = SpotifyAgg, var.equal = F)
+t.test(energy~base, data = SpotifyAgg, var.equal = F)
+t.test(valence~base, data = SpotifyAgg, var.equal = F)
 
-#Cálculos Danceability
-media_danceability_PR <- mean(SpotifyPR$danceability, na.rm = T)
-varianza_danceability_PR <- var(SpotifyPR$danceability, na.rm = T)
-n_danceability_PR <- sum(!is.na(SpotifyPR$danceability))
-sd_danceability_PR <- sqrt(varianza_danceability_PR/n_danceability_PR)
-
-#Cálculos Energy
-media_energy_PR <- mean(SpotifyPR$energy, na.rm = T)
-varianza_energy_PR <- var(SpotifyPR$energy, na.rm = T)
-n_energy_PR <- sum(!is.na(SpotifyPR$energy))
-sd_energy_PR <- sqrt(varianza_energy_PR/n_energy_PR) 
-
+# Para comprobar que el test es correcto, vean como se haria por pasos
 #Cálculos Valence
 media_valence_PR <- mean(SpotifyPR$valence, na.rm = T)
 varianza_valence_PR <- var(SpotifyPR$valence, na.rm = T)
 n_valence_PR <- sum(!is.na(SpotifyPR$valence))
-sd_valence_PR <- sqrt(varianza_valence_PR/n_valence_PR) 
 
-#Calculamos las medias para popularity, danceability, energy y valence en la base SpotifyFeatures (SF)
-(media_popularity_SF <- mean(SpotifyFeatures$popularity, na.rm = T))
-(media_danceability_SF <- mean(SpotifyFeatures$danceability, na.rm = T))
-(media_energy_SF <- mean(SpotifyFeatures$energy, na.rm = T))
-(media_valence_SF <- mean(SpotifyFeatures$valence, na.rm = T)) 
+media_valence_SF <- mean(SpotifyFeatures$valence, na.rm = T)
+varianza_valence_SF <- var(SpotifyFeatures$valence, na.rm = T)
+n_valence_SF <- sum(!is.na(SpotifyFeatures$valence))
 
-#Mediante el estadístico t, analizamos si las muestras son representativas
-(t_popularity <- (media_popularity_PR-media_popularity_SF)/(sd_popularity_PR))
-(t_danceability <- (media_danceability_PR-media_danceability_SF )/(sd_danceability_PR))
-(t_energy <- (media_energy_PR-media_energy_SF)/(sd_energy_PR))
-(t_valence <- (media_valence_PR-media_valence_SF)/(sd_valence_PR))
-
-#De misma forma, podríamos obtener el valor-p y os intervalos de confianza
-#P-value
-(pvalue_popularity <- 2*(1-pnorm(abs(t_popularity),0,1)))
-(pvalue_danceability <- 2*(1-pnorm(abs(t_danceability),0,1)))
-(pvalue_energy <- 2*(1-pnorm(abs(t_energy),0,1)))
-(pvalue_valence <- 2*(1-pnorm(abs(t_valence),0,1)))
-
-#Intervalo de Confianza al 95%
-(IC_popularity <- c(media_popularity_PR - (1.96)*sd_popularity_PR, 
-                    media_popularity_PR + (1.96)*sd_popularity_PR))
-(IC_danceability <- c(media_danceability_PR - (1.96)*sd_danceability_PR, 
-                    media_danceability_PR + (1.96)*sd_danceability_PR))
-(IC_energy <- c(media_energy_PR - (1.96)*sd_energy_PR, 
-                    media_energy_PR + (1.96)*sd_energy_PR))
-(IC_valence <- c(media_valence_PR - (1.96)*sd_valence_PR, 
-                    media_valence_PR + (1.96)*sd_valence_PR))
+(t_valence <- (media_valence_SF - media_valence_PR)/(sqrt(varianza_valence_PR/n_valence_PR + varianza_valence_SF/n_valence_SF)))
+(pval_valence <- 2*(1-pnorm(abs(t_valence),0,1)))
 
 # ====// Inciso ( b )
 
