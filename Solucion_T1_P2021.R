@@ -1,5 +1,5 @@
 #Soluciones Tarea 1 | Primavera 2022
-# Creada por Miguel Ángel Negrete Flores
+# Creada por Miguel Negrete
 # Revisada y editada por Arturo Aguilar
 
 # Para ejecutar este script desde su computadora pueden guardar
@@ -68,7 +68,7 @@ ggsave("Hist_energy.jpeg",  width = 5.54, height = 4.95)
 #Creamos la muestra que contiene las canciones de Pop y Rock
 SpotifyFeatures <- SpotifyFeatures %>% mutate(base=0)
 
-SpotifyPR <- SpotifyFeatures %>% filter(str_detect(ï..genre,'Pop|Rock')) %>% mutate(base = replace(base,base==0,1))
+SpotifyPR <- SpotifyFeatures %>% filter(str_detect(genre,'Pop|Rock')) %>% mutate(base = replace(base,base==0,1))
 
 # Pego una base encima de la otra
 SpotifyAgg <- rbind(SpotifyFeatures,SpotifyPR)
