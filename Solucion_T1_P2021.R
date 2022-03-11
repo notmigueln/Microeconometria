@@ -27,7 +27,7 @@ library(moments)
 
 #Cargamos las Base de Datos SpotifyFeatures
 
-SpotifyFeatures<-read.csv("SpotifyFeatures.csv")
+SpotifyFeatures<-read_csv("SpotifyFeatures.csv")
 
 # ====// Pregunta 2 \\====
 
@@ -71,7 +71,7 @@ SpotifyFeatures <- SpotifyFeatures %>% mutate(base=0)
 SpotifyPR <- SpotifyFeatures %>% filter(str_detect(genre,'Pop|Rock')) %>% mutate(base = replace(base,base==0,1))
 
 # Pego una base encima de la otra
-SpotifyAgg <- rbind(SpotifyFeatures,SpotifyPR)
+SpotifyAgg <- rbind(SpotifyFeatures,SpotifyPR) %>% mutate(base = factor(base))
 
 # ====// Inciso ( a )
 
@@ -98,99 +98,73 @@ n_valence_SF <- sum(!is.na(SpotifyFeatures$valence))
 
 # ====// Inciso ( b )
 
-#Calculamos la varianza y el número de observaciones para la variable danceability de SpotifyFeatures
-(varianza_danceability_SF <- var(SpotifyFeatures$danceability, na.rm = T))
-(n_danceability_SF <- sum(!is.na(SpotifyFeatures$danceability)))
+#Calculamos la diferencia de medias y varianza para la variable danceabilty
+media_dance_PR <- mean(SpotifyPR$danceability, na.rm = T)
+varianza_dance_PR <- var(SpotifyPR$danceability, na.rm = T)
+n_dance_PR <- sum(!is.na(SpotifyPR$danceability))
 
-#Calculamos los valores de Eta
-(valores_eta <- c(((media_danceability_SF - media_danceability_PR)-(+1.96*sqrt((varianza_danceability_SF/n_danceability_SF) + (varianza_danceability_PR/n_danceability_PR)))),((media_danceability_SF - media_danceability_PR)-(-1.96*sqrt((varianza_danceability_SF/n_danceability_SF) + (varianza_danceability_PR/n_danceability_PR))))))
+media_dance_SF <- mean(SpotifyFeatures$danceability, na.rm = T)
+varianza_dance_SF <- var(SpotifyFeatures$danceability, na.rm = T)
+n_dance_SF <- sum(!is.na(SpotifyFeatures$danceability))
+
+(eta_dif_medias <- media_dance_SF - media_dance_PR)
+(eta_var_dif_medias <- varianza_dance_PR/n_dance_PR + varianza_dance_SF/n_dance_SF)
+(eta <- c(eta_dif_medias - 1.96*sqrt(eta_var_dif_medias),
+          eta_dif_medias + 1.96*sqrt(eta_var_dif_medias)))
 
 #Comprobación
-(t1_dance<-((media_danceability_PR - media_danceability_SF+valores_eta[1])/(sqrt((varianza_danceability_PR/ n_danceability_PR)+(varianza_danceability_SF/ n_danceability_SF)))))
-(pvalue_dance <- 2*(1-pnorm(abs(t1_dance),0,1)))
+t1_dance<-(media_dance_SF - media_dance_PR-eta[1])/sqrt(eta_var_dif_medias)
+(pvalue1_dance <- 2*(1-pnorm(abs(t1_dance),0,1)))
 
-(t2_dance<-((media_danceability_PR - media_danceability_SF+valores_eta[2])/(sqrt((varianza_danceability_PR/ n_danceability_PR)+(varianza_danceability_SF/ n_danceability_SF)))))
-(pvalue_dance <- 2*(1-pnorm(abs(t2_dance),0,1)))
+t2_dance<-(media_dance_SF - media_dance_PR-eta[2])/sqrt(eta_var_dif_medias)
+(pvalue2_dance <- 2*(1-pnorm(abs(t2_dance),0,1)))
 
 # ====// Inciso ( c )
 
-#Creamos variables a las que les asignamos un valor RGB para nuestras gráficas
-col_1 <- rgb(173,216,230,max = 255, alpha = 80, names = "lt.blue")
-col_2 <- rgb(255,192,203, max = 255, alpha = 80, names = "lt.pink")
+label_group <- c("Features", "PopRock")
+names(label_group) <- c("0","1")
 
-#Creamos los intervalos para nuestras gráficas
-b <- min(c(SpotifyFeatures$valence,SpotifyPR$valence))
-e <- max(c(SpotifyFeatures$valence,SpotifyPR$valence))
-ax <- pretty(b:e, n = 50) 
+#Create means
+SpotifyMeans <- SpotifyAgg %>% group_by(base) %>%
+  summarize(mean_val = mean(valence))
 
-#Creamos las gráficas
-hgA <- hist(SpotifyFeatures$valence, breaks = ax, plot = FALSE)
-hgB <- hist(SpotifyPR$valence, breaks = ax, plot = FALSE)
+ggplot(data = SpotifyAgg, aes(x = valence, y= ..count../sum(..count..))) + geom_histogram() +
+  facet_grid(base~., scales = "free", labeller = labeller(base = label_group)) +
+  geom_vline(data = SpotifyMeans, aes(xintercept = mean_val, colour = base)) +
+  theme_classic() + theme(legend.position = "none") + ylab("density")
 
-#Unimos las gráficas en un solo plano y le añadimos las propiedades que queremos
-plot(hgA, col = col_1, xlab="Valence",ylab = "Frecuencia") #main = "Distribución de Valence para SpotifyPR y SpotifyFeatures "
-plot(hgB, col = col_2, add = TRUE)
-abline(v = media_valence_SF,
-       col = "blue",
-       lwd = 3)
-text(x = 0.25,
-     y = 8000,
-     paste("Media SpotifyFeatures =", round(media_valence_SF,4)),
-     col = "blue",
-     cex = 1)
-abline(v = media_valence_PR,
-       col = "red",
-       lwd = 3)
-text(x = 0.7,
-     y = 8000,
-     paste("Media SpotifyPR =", round(media_valence_PR,4)),
-     col = "red",
-     cex = 1)
-legend("topright", c("Valence SF", "Valence PR"), col=c(col_1, col_2), lwd=10)
+ggsave("Hist_preg3c.jpeg",  width = 5.54, height = 4.95)
+
 
 # ====// Inciso ( d )
 
 #Obtenemos el estadístico de Kolmogorov-Smirnov (KS) y su valor-p
 
-ks.test(SpotifyFeatures$valence,SpotifyPR$valence)
-test$statistic
+KS <- ks.test(SpotifyFeatures$valence,SpotifyPR$valence)
+(KS$statistic)
 
 #Otra forma de calcularlo podría ser:
-valence_SF_ecdf <- ecdf(SpotifyFeatures$valence)
-valence_PR_ecdf <- ecdf(SpotifyPR$valence)
-n_valence_SF <- length(SpotifyFeatures$valence)
-n_valence_PR <- length(SpotifyPR$valence)
-n_tot <- n_valence_PR*n_valence_SF / ( n_valence_PR + n_valence_SF)
-w <- c(SpotifyFeatures$valence,SpotifyPR$valence)
-z<- cumsum(ifelse(order(w) <= n_valence_SF, 1/n_valence_SF, -1/n_valence_PR))
-max(abs(z))
-(max.at <- sort(w)[which(abs(z) == max(abs(z)))])
+SpotifyCDF <- SpotifyAgg %>% group_by(base) %>% mutate(n = n()) %>%
+  mutate(iSF = ifelse(base==0,1,0), iPR = ifelse(base==0,0,1)) %>% 
+  ungroup() %>% group_by(valence) %>% arrange(valence) %>% 
+  summarize(iSF = sum(iSF), iPR = sum(iPR), Ntot_SF = max(n), Ntot_PR = min(n)) %>% 
+  ungroup() %>% mutate(nSF = cumsum(iSF), nPR = cumsum(iPR), Ntot_PR = min(Ntot_PR),
+                       CDF_SF = nSF/Ntot_SF, CDF_PR = nPR / Ntot_PR,
+                       CDF_dif = abs(CDF_SF - CDF_PR)) 
+  
+(KS_stat <- max(SpotifyCDF$CDF_dif))
+(KS_valence <- SpotifyCDF$valence[SpotifyCDF$CDF_dif==KS_stat])
 
 #Gráfica de KS
 
-conjunto <- data.frame(x=c(SpotifyFeatures$valence,SpotifyPR$valence), group = gl (2,100000))
-ggplot(conjunto, aes(x = x))+ stat_ecdf()
-ggplot(SpotifyFeatures, aes(valence)) +
-  stat_ecdf(geom = "step")
-ggplot(SpotifyPR, aes(valence)) +stat_ecdf(geom = "step")
-plot(ecdf(SpotifyFeatures$valence),
-     xlab="Valence",
-     ylab = "Probabilidad",
-     main="",
-     xlim = range(c(SpotifyFeatures$valence, SpotifyPR$valence)),
-     col = "skyblue4")
-plot(ecdf(SpotifyPR$valence),
-     add = TRUE,
-     lty = "dashed",
-     col = "red")
-abline(v=test$statistic, lty=2)
-text(x = .23, 
-     y = .7, 
-     labels = paste("KS =", 
-                    round(test$statistic, 6)),
-     pos = 3)
-lines(abs(z)~sort(w), col="purple", lwd=2)
-legend("right", legend=c("SpotifyFeatures$valence", "SpotifyPR$valence", "|Distancia|"), col=c("skyblue4", "red", "purple"), lwd=c(2,2,2), bty="n")
+ggplot() + stat_ecdf(data = SpotifyAgg,aes(x = valence, color = base)) + 
+  geom_line(data = SpotifyCDF, aes(x = valence, y = CDF_dif)) +
+  scale_color_hue(labels = c("Features","PopRock")) +
+  geom_vline(xintercept = KS_valence, linetype = "longdash") + 
+  theme_classic()
+
+ggsave("KS_preg3d.jpeg",  width = 5.54, height = 4.95)
+
 
 # ====// Inciso ( e )
 
