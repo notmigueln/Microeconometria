@@ -176,39 +176,33 @@ boot_valence_ks <- c()
 # Realizamos las simulaciones
 for (i in 1:5000){
   SpotifyFeatures_boot <- sample_n(SpotifyFeatures, size = 100000, replace = T)
-  SpotifyPR_boot <- SpotifyFeatures_boot[SpotifyFeatures_boot$genre == "Pop"| SpotifyFeatures_boot$genre == "Rock",]
+  SpotifyPR_boot <- SpotifyFeatures_boot %>% filter(str_detect(genre,'Pop|Rock')) 
   boot_valence_ks <- c(boot_valence_ks,ks.test(SpotifyFeatures_boot$valence,SpotifyPR_boot$valence)$statistic)
 }
 
 #Guardamos nuestro vector de resultados como un DataFrame
 ks_boot <- as.data.frame(boot_valence_ks)
-view(ks_boot)
 
 #Graficamos nuestros resultados
 ggplot(ks_boot, aes(x = boot_valence_ks, y = ..count../sum(..count..))) + geom_histogram() +
   labs( x = "KS Bootstrap", y = "Densidad") + 
   theme_minimal() 
 
-#Test adicionales de normalidad
-skewness(ks_boot$boot_valence_ks)
-kurtosis(ks_boot$boot_valence_ks)
-shapiro.test(ks_boot$boot_valence_ks)
+ggsave("KS_preg3e.jpeg",  width = 5.54, height = 4.95)
+
 
 # ==== Parte II
 
 #Obtenemos la media, varianza, número de observaciones y desviación estándar para calcular el estadístico-t
 (ks_boot_mean <- mean(ks_boot$boot_valence_ks, na.rm = T))
-(ks_boot_var <- var(ks_boot$boot_valence_ks, na.rm = T))
-(ks_n_boot <- sum(!is.na(ks_boot$boot_valence_ks)))
-(ks_sd_boot <- sqrt(ks_boot_var/ks_n_boot))
-
-(t_ks_boot <- (ks_boot_mean-0)/(ks_sd_boot))
+ks_boot_var <- var(ks_boot$boot_valence_ks, na.rm = T)
+(ks_sd_boot <- sqrt((100000/191049)*ks_boot_var))
+(IC_KS_a <- c(ks_boot_mean - 1.96*ks_sd_boot,ks_boot_mean + 1.96*ks_sd_boot))
 
 # ==== Parte III
 
 #Cortamos el 5% de cada extremo de nuestra distribución para calcular un intervalo de confianza de 90% para KS 
-(quantile(ks_boot$boot_valence_ks,.05))
-(quantile(ks_boot$boot_valence_ks,.95))
+(IC_KS_b <- quantile(ks_boot$boot_valence_ks,c(0.025,0.975)))
 
 
 # ====// Pregunta 4 \\====
@@ -339,9 +333,8 @@ stargazer(modelo_2, type = "text")
 # ====// Inciso ( d )
 
 #Creamos una base de datos que incluya a las canciones que no pertenecen al género Pop o Rock
-Spotify_Not_PR <- SpotifyFeatures[SpotifyFeatures$genre != "Pop" & SpotifyFeatures$genre != "Rock",]
-View(Spotify_Not_PR) 
-
+Spotify_Not_PR <- SpotifyFeatures %>% filter(!str_detect(genre,'Pop|Rock')) 
+  
 #Calculamos los datos necesarios para obtener B1 de la regresión lineal simple ( popularity = B0 + B1 acousticness)
 (cov_B1_PR<-cov(SpotifyPR$acousticness,SpotifyPR$popularity))
 (var_acousticness_PR<-var(SpotifyPR$acousticness))
@@ -349,25 +342,13 @@ View(Spotify_Not_PR)
 
 #Podríamos obtener el mismo resultado calculando la regresión completa
 modelo_3<-lm (popularity ~ acousticness, data=SpotifyPR)
-stargazer(modelo_3, type = "text")
-
-#Calculamos el ponderador de las canciones que no pertenecen al género Pop o Rock
-(weight_PR<-sum(!is.na(SpotifyPR$popularity))/sum(!is.na(SpotifyFeatures$popularity)))
-
-#Repetimos los pasos anteriores para la base de datos que solo contiene a las canciones que pertenecen al género pop o rock (esta base la calculamos en la pregunta 3)
-
-#Cov, Var y B1
-(cov_B1_Not_PR<-cov(Spotify_Not_PR$acousticness,Spotify_Not_PR$popularity))
-(var_acousticness_Not_PR<-var(Spotify_Not_PR$acousticness))
-(B1_Not_PR<-(cov_B1_Not_PR/var_acousticness_Not_PR))
-
-#Regresión completa
 modelo_4<-lm (popularity ~ acousticness, data=Spotify_Not_PR)
-stargazer(modelo_4, type = "text")
+stargazer(modelo_3, modelo_4,type = "text")
 
-#Ponderador
-(weight_Not_PR<-sum(!is.na(Spotify_Not_PR$popularity))/sum(!is.na(SpotifyFeatures$popularity)))
+# Calculo manual
+nTot <- length(SpotifyPR$acousticness) + length(Spotify_Not_PR$acousticness)
 
-#Finalmente, calculamos la B1 de nuestra regresión con una variable dicotómica (popularity = B0 + B1 acousticness + B2 PR)
-(B1_Reg<-((B1_PR)*weight_PR+(B1_Not_PR)*weight_Not_PR))
+(beta_acc <- modelo_3$coefficients['acousticness']*(length(SpotifyPR$acousticness)/nTot) +
+  modelo_4$coefficients['acousticness']*(length(Spotify_Not_PR$acousticness)/nTot))
+
 
